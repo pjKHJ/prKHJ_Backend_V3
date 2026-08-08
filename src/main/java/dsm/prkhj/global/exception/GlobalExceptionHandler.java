@@ -3,6 +3,7 @@ package dsm.prkhj.global.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -39,6 +40,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(GlobalErrorCode.METHOD_NOT_ALLOWED.getStatus())
                 .body(ErrorResponse.of(
                         GlobalErrorCode.METHOD_NOT_ALLOWED,
+                        request.getRequestURI()
+                ));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadableRequest(
+            HttpMessageNotReadableException e,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(GlobalErrorCode.INVALID_INPUT_VALUE.getStatus())
+                .body(ErrorResponse.of(
+                        GlobalErrorCode.INVALID_INPUT_VALUE,
                         request.getRequestURI()
                 ));
     }
