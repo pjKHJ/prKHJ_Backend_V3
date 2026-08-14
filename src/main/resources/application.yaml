@@ -15,7 +15,7 @@ spring:
         format_sql: true
     show-sql: true
 
-용jwt:
+jwt:
   secret: ${JWT_SECRET:dev-only-secret-key-change-me-in-production-0123456789}
   access-token-validity-seconds: ${JWT_ACCESS_VALIDITY:1800}
   refresh-token-validity-seconds: ${JWT_REFRESH_VALIDITY:1209600}
