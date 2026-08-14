@@ -1,0 +1,61 @@
+package dsm.prkhj.domain.auth.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import java.time.LocalDateTime;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+@Entity
+@Table(name = "users")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(columnDefinition = "BIGINT UNSIGNED")
+    private Long id;
+
+    @Column(name = "github_user_id", nullable = false, unique = true, columnDefinition = "BIGINT UNSIGNED")
+    private Long githubUserId;
+
+    @Column(name = "github_login", nullable = false, unique = true, length = 39)
+    private String githubLogin;
+
+    @Column(name = "avatar_url", length = 255)
+    private String avatarUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Role role;
+
+    @Column(name = "github_access_token", columnDefinition = "VARBINARY(512)")
+    private byte[] githubAccessToken;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME(3)")
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false, columnDefinition = "DATETIME(3)")
+    private LocalDateTime updatedAt;
+
+    @Builder
+    public User(Long githubUserId, String githubLogin, String avatarUrl) {
+        this.githubUserId = githubUserId;
+        this.githubLogin = githubLogin;
+        this.avatarUrl = avatarUrl;
+        this.role = Role.USER;
+    }
+}
