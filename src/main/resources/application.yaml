@@ -1,3 +1,21 @@
 spring:
   application:
     name: prKHJ_Backend_V3
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:prkhj}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+
+jwt:
+  secret: ${JWT_SECRET:dev-only-secret-key-change-me-in-production-0123456789}
+  access-token-validity-seconds: ${JWT_ACCESS_VALIDITY:1800}
+  refresh-token-validity-seconds: ${JWT_REFRESH_VALIDITY:1209600}
