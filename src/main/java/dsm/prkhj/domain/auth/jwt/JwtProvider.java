@@ -34,10 +34,11 @@ public class JwtProvider {
         this.refreshTokenValiditySeconds = refreshTokenValiditySeconds;
     }
 
-    public String generateAccessToken(Long userId, Role role) {
+    public String generateAccessToken(Long userId, String githubLogin, Role role) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(String.valueOf(userId))
+                .claim("login", githubLogin)
                 .claim("role", role.name())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(accessTokenValiditySeconds)))
@@ -80,9 +81,11 @@ public class JwtProvider {
     public Authentication getAuthentication(String accessToken) {
         Claims claims = parseClaims(accessToken);
         Long userId = Long.valueOf(claims.getSubject());
+        String githubLogin = claims.get("login", String.class);
         Role role = Role.valueOf(claims.get("role", String.class));
+        UserPrincipal principal = new UserPrincipal(userId, githubLogin, role);
         return new UsernamePasswordAuthenticationToken(
-                userId, null, List.of(new SimpleGrantedAuthority("ROLE_" + role.name())));
+                principal, null, List.of(new SimpleGrantedAuthority("ROLE_" + role.name())));
     }
 
     private Claims parseClaims(String token) {
