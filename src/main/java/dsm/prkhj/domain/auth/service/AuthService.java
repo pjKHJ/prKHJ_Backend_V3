@@ -33,7 +33,8 @@ public class AuthService {
     }
 
     public GithubAuthUrlResponse getGithubAuthorizationUrl(String redirectUri) {
-        String targetRedirectUri = redirectUri == null ? defaultRedirectUri : redirectUri;
+        String targetRedirectUri =
+                (redirectUri == null) ? defaultRedirectUri : redirectUri;
         if (!allowedRedirectUris.contains(targetRedirectUri)) {
             throw new KHJException(AuthErrorCode.INVALID_REDIRECT_URI);
         }
