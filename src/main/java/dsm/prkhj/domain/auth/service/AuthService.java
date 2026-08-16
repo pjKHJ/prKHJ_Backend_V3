@@ -51,6 +51,9 @@ public class AuthService {
     }
 
     private String generateState() {
+
+        // UUID 문자열에는 이픈이 섞여있음.
+        // 히후 콜백 단계에서 세션이나 별도 저장소에 발급한 state를 저장해두고 비교하는 로직이 필요함. 기억하라고
         return UUID.randomUUID().toString().replace("-", "").substring(0, 10);
     }
 }
