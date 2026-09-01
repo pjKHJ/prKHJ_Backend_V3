@@ -19,3 +19,12 @@ jwt:
   secret: ${JWT_SECRET:dev-only-secret-key-change-me-in-production-0123456789}
   access-token-validity-seconds: ${JWT_ACCESS_VALIDITY:1800}
   refresh-token-validity-seconds: ${JWT_REFRESH_VALIDITY:1209600}
+
+github:
+  client-id: ${GITHUB_CLIENT_ID:}
+  authorize-url: https://github.com/login/oauth/authorize
+  scope: "read:user repo"
+
+auth:
+  default-redirect-uri: ${AUTH_DEFAULT_REDIRECT_URI:http://localhost:3000/oauth/callback}
+  allowed-redirect-uris: ${AUTH_ALLOWED_REDIRECT_URIS:http://localhost:3000/oauth/callback}
