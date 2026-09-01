@@ -7,10 +7,12 @@ import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -21,7 +23,9 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
-@Table(name = "extension_links")
+@Table(name = "extension_links",
+        uniqueConstraints = @UniqueConstraint(name = "uk_ext_links_user", columnNames = "user_id"),
+        indexes = @Index(name = "idx_ext_links_code", columnList = "link_code_id"))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ExtensionLink {
@@ -32,7 +36,7 @@ public class ExtensionLink {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false, unique = true, columnDefinition = "BIGINT UNSIGNED",
+    @JoinColumn(name = "user_id", nullable = false, columnDefinition = "BIGINT UNSIGNED",
             foreignKey = @ForeignKey(name = "fk_ext_links_user"))
     @OnDelete(action = OnDeleteAction.CASCADE)
     private User user;
