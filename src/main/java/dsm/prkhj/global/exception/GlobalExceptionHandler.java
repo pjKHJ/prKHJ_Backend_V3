@@ -26,10 +26,10 @@ public class GlobalExceptionHandler {
         String message = e.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
-                .orElse(GlobalErrorCode.INVALID_INPUT_VALUE.getMessage());
+                .orElse(GlobalErrorCode.INVALID_REQUEST.getMessage());
         log.warn("Validation failed: {}", message);
-        return ResponseEntity.status(GlobalErrorCode.INVALID_INPUT_VALUE.getStatus())
-                .body(ErrorResponse.of(GlobalErrorCode.INVALID_INPUT_VALUE, message, request.getRequestURI()));
+        return ResponseEntity.status(GlobalErrorCode.INVALID_REQUEST.getStatus())
+                .body(ErrorResponse.of(GlobalErrorCode.INVALID_REQUEST, message, request.getRequestURI()));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
@@ -37,9 +37,9 @@ public class GlobalExceptionHandler {
             HttpRequestMethodNotSupportedException e,
             HttpServletRequest request
     ) {
-        return ResponseEntity.status(GlobalErrorCode.METHOD_NOT_ALLOWED.getStatus())
+        return ResponseEntity.status(GlobalErrorCode.INVALID_REQUEST.getStatus())
                 .body(ErrorResponse.of(
-                        GlobalErrorCode.METHOD_NOT_ALLOWED,
+                        GlobalErrorCode.INVALID_REQUEST,
                         request.getRequestURI()
                 ));
     }
@@ -49,9 +49,9 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException e,
             HttpServletRequest request
     ) {
-        return ResponseEntity.status(GlobalErrorCode.INVALID_INPUT_VALUE.getStatus())
+        return ResponseEntity.status(GlobalErrorCode.INVALID_REQUEST.getStatus())
                 .body(ErrorResponse.of(
-                        GlobalErrorCode.INVALID_INPUT_VALUE,
+                        GlobalErrorCode.INVALID_REQUEST,
                         request.getRequestURI()
                 ));
     }
