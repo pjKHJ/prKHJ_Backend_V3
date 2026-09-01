@@ -44,6 +44,7 @@ public class AuthService {
                 .queryParam("client_id", githubClientId)
                 .queryParam("scope", githubScope)
                 .queryParam("state", state)
+                .queryParam("redirect_uri", targetRedirectUri)
                 .build()
                 .toUriString();
 
