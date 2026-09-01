@@ -23,7 +23,7 @@ jwt:
 github:
   client-id: ${GITHUB_CLIENT_ID:}
   authorize-url: https://github.com/login/oauth/authorize
-  scope: read:user,repo
+가  scope: "read:user repo"
 
 auth:
   default-redirect-uri: ${AUTH_DEFAULT_REDIRECT_URI:http://localhost:3000/oauth/callback}

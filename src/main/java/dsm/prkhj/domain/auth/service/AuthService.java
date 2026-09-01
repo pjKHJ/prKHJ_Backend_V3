@@ -46,6 +46,7 @@ public class AuthService {
                 .queryParam("state", state)
                 .queryParam("redirect_uri", targetRedirectUri)
                 .build()
+                .encode()
                 .toUriString();
 
         return new GithubAuthUrlResponse(authorizationUrl, state);
