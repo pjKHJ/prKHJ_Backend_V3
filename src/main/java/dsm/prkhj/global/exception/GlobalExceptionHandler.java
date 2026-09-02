@@ -37,9 +37,9 @@ public class GlobalExceptionHandler {
             HttpRequestMethodNotSupportedException e,
             HttpServletRequest request
     ) {
-        return ResponseEntity.status(GlobalErrorCode.INVALID_REQUEST.getStatus())
+        return ResponseEntity.status(GlobalErrorCode.METHOD_NOT_ALLOWED.getStatus())
                 .body(ErrorResponse.of(
-                        GlobalErrorCode.INVALID_REQUEST,
+                        GlobalErrorCode.METHOD_NOT_ALLOWED,
                         request.getRequestURI()
                 ));
     }
