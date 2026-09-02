@@ -1,16 +1,39 @@
 package dsm.prkhj.domain.auth.service;
 
-import dsm.prkhj.domain.auth.dto.response.GithubAuthUrlResponse;
+import dsm.prkhj.domain.auth.client.GithubClient;
+import dsm.prkhj.domain.auth.client.GithubUserResponse;
+import dsm.prkhj.domain.auth.controller.dto.response.GithubAuthUrlResponse;
+import dsm.prkhj.domain.auth.controller.dto.response.LoginResponse;
+import dsm.prkhj.domain.auth.controller.dto.response.TokenResponse;
+import dsm.prkhj.domain.auth.entity.User;
 import dsm.prkhj.domain.auth.exception.AuthErrorCode;
+import dsm.prkhj.domain.auth.exception.JwtErrorCode;
+import dsm.prkhj.domain.auth.exception.UserErrorCode;
+import dsm.prkhj.domain.auth.jwt.JwtProvider;
+import dsm.prkhj.domain.auth.repository.UserRepository;
 import dsm.prkhj.global.exception.KHJException;
+import dsm.prkhj.global.redis.RefreshTokenStore;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @Service
 public class AuthService {
+
+    // 명세의 accessTokenExpiresAt은 +09:00 고정. 서버 TZ에 끌려다니면 안 된다
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
+    private final GithubClient githubClient;
+    private final UserRepository userRepository;
+    private final JwtProvider jwtProvider;
+    private final RefreshTokenStore refreshTokenStore;
 
     private final String githubClientId;
     private final String githubAuthorizeUrl;
@@ -19,12 +42,20 @@ public class AuthService {
     private final String defaultRedirectUri;
 
     public AuthService(
+            GithubClient githubClient,
+            UserRepository userRepository,
+            JwtProvider jwtProvider,
+            RefreshTokenStore refreshTokenStore,
             @Value("${github.client-id}") String githubClientId,
             @Value("${github.authorize-url}") String githubAuthorizeUrl,
             @Value("${github.scope}") String githubScope,
             @Value("${auth.allowed-redirect-uris}") List<String> allowedRedirectUris,
             @Value("${auth.default-redirect-uri}") String defaultRedirectUri
     ) {
+        this.githubClient = githubClient;
+        this.userRepository = userRepository;
+        this.jwtProvider = jwtProvider;
+        this.refreshTokenStore = refreshTokenStore;
         this.githubClientId = githubClientId;
         this.githubAuthorizeUrl = githubAuthorizeUrl;
         this.githubScope = githubScope;
@@ -50,6 +81,87 @@ public class AuthService {
                 .toUriString();
 
         return new GithubAuthUrlResponse(authorizationUrl, state);
+    }
+
+    @Transactional
+    public LoginResponse loginWithGithub(String code) {
+        if (!StringUtils.hasText(code)) {
+            throw new KHJException(AuthErrorCode.INVALID_GITHUB_CODE_FORMAT);
+        }
+
+        String githubAccessToken = githubClient.exchangeCodeForAccessToken(code);
+        GithubUserResponse githubUser = githubClient.getUser(githubAccessToken);
+
+        // ponytail: github_access_token 저장은 암호화(12번)와 함께. 평문으로 먼저 넣지 않는다.
+        User existing = userRepository.findByGithubUserId(githubUser.id()).orElse(null);
+        boolean isNewUser = (existing == null);
+        User user = isNewUser
+                ? userRepository.save(
+                        User.builder()
+                        .githubUserId(githubUser.id())
+                        .githubLogin(githubUser.login())
+                        .avatarUrl(githubUser.avatarUrl())
+                        .build()
+                )
+                : existing;
+        user.syncGithubProfile(githubUser.login(), githubUser.avatarUrl());
+
+        return LoginResponse.of(issueTokens(user), user, isNewUser);
+    }
+
+    @Transactional(readOnly = true)
+    public TokenResponse refresh(String refreshToken) {
+        if (!StringUtils.hasText(refreshToken)) {
+            throw new KHJException(JwtErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        // GETDEL로 원자적으로 소비함
+        // 같은 RT가 동시에 들어와도 하나만 값을 받음
+        Long userId = validRefreshTokenId(refreshToken)
+                .map(refreshTokenStore::consumeUserId)
+                .filter(stored -> stored.equals(jwtProvider.getUserId(refreshToken)))
+                .orElseThrow(() -> new KHJException(JwtErrorCode.INVALID_OR_EXPIRED_REFRESH_TOKEN));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new KHJException(UserErrorCode.USER_NOT_FOUND));
+
+        return issueTokens(user);
+    }
+
+    public void logout(Long authenticatedUserId, String refreshToken) {
+        // 남의 RT를 폐기하지 못하도록 AT 주체와 일치할 때만 지운다.
+        // 이미 만료/폐기된 RT여도 로그아웃은 멱등하게 204.
+        resolveRefreshTokenOwner(refreshToken)
+                .filter(authenticatedUserId::equals)
+                .ifPresent(userId -> refreshTokenStore.delete(jwtProvider.getTokenId(refreshToken)));
+    }
+
+    /**
+     * RT가 서명/만료상 유효하고 Redis에 살아있으면 그 소유자 id를 준다.
+     * 실패는 전부 빈 값. 호출부가 JWT_401로 올릴지(A3) 무시할지(A4) 정한다.
+     */
+    private Optional<Long> resolveRefreshTokenOwner(String refreshToken) {
+        return validRefreshTokenId(refreshToken)
+                .map(refreshTokenStore::findUserId)
+                .filter(stored -> stored.equals(jwtProvider.getUserId(refreshToken)));
+    }
+
+    /** 서명/만료가 유효하고 jti가 있는 RT의 tokenId. jti가 없다 = RT가 아니라 AT를 보냈다 */
+    private Optional<String> validRefreshTokenId(String refreshToken) {
+        if (!StringUtils.hasText(refreshToken) || !jwtProvider.validateToken(refreshToken)) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(jwtProvider.getTokenId(refreshToken));
+    }
+
+    private TokenResponse issueTokens(User user) {
+        String accessToken = jwtProvider.generateAccessToken(user.getId(), user.getGithubLogin(), user.getRole());
+        String refreshToken = jwtProvider.generateRefreshToken(user.getId());
+        refreshTokenStore.save(jwtProvider.getTokenId(refreshToken), user.getId());
+
+        OffsetDateTime expiresAt =
+                OffsetDateTime.ofInstant(jwtProvider.getExpiration(accessToken), KST);
+        return new TokenResponse(accessToken, refreshToken, expiresAt);
     }
 
     private String generateState() {

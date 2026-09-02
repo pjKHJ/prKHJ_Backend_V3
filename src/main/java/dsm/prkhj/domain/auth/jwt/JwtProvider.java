@@ -84,6 +84,7 @@ public class JwtProvider {
         String githubLogin = claims.get("login", String.class);
         Role role = Role.valueOf(claims.get("role", String.class));
         UserPrincipal principal = new UserPrincipal(userId, githubLogin, role);
+
         return new UsernamePasswordAuthenticationToken(
                 principal, null, List.of(new SimpleGrantedAuthority("ROLE_" + role.name())));
     }

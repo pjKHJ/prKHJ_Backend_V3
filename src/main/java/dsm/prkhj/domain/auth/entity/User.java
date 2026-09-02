@@ -8,6 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -17,7 +18,10 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_users_github_user_id", columnNames = "github_user_id"),
+        @UniqueConstraint(name = "uk_users_github_login", columnNames = "github_login")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User {
@@ -27,10 +31,10 @@ public class User {
     @Column(columnDefinition = "BIGINT UNSIGNED")
     private Long id;
 
-    @Column(name = "github_user_id", nullable = false, unique = true, columnDefinition = "BIGINT UNSIGNED")
+    @Column(name = "github_user_id", nullable = false, columnDefinition = "BIGINT UNSIGNED")
     private Long githubUserId;
 
-    @Column(name = "github_login", nullable = false, unique = true, length = 39)
+    @Column(name = "github_login", nullable = false, length = 39)
     private String githubLogin;
 
     @Column(name = "avatar_url", length = 255)
@@ -57,5 +61,11 @@ public class User {
         this.githubLogin = githubLogin;
         this.avatarUrl = avatarUrl;
         this.role = Role.USER;
+    }
+
+    // github_login과 avatar_url은 GitHub에서 바뀔 수 있으므로 로그인할 때마다 갱신
+    public void syncGithubProfile(String githubLogin, String avatarUrl) {
+        this.githubLogin = githubLogin;
+        this.avatarUrl = avatarUrl;
     }
 }
