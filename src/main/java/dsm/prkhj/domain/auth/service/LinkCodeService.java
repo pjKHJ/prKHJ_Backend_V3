@@ -45,7 +45,7 @@ public class LinkCodeService {
     // linked = false
     @Transactional
     public LinkCodeResponse resetLinkCode(Long userId) {
-        extensionLi급nkRepository.deleteByUserId(userId);
+        extensionLinkRepository.deleteByUserId(userId);
         linkCodeRepository.deleteByUserId(userId);
         // uk_link_codes_user 충돌 방지
         // DELETE가 INSERT보다 먼저 나감
