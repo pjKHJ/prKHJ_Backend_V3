@@ -25,6 +25,13 @@ public class RefreshTokenStore {
         return (userId == null) ? null : Long.valueOf(userId);
     }
 
+    // 조회와 폐기가 한 번에 일어나서 동시 요청 중 하나만 값을 받는다
+    // GETDEL
+    public Long consumeUserId(String tokenId) {
+        String userId = redisTemplate.opsForValue().getAndDelete(KEY_PREFIX + tokenId);
+        return (userId == null) ? null : Long.valueOf(userId);
+    }
+
     public void delete(String tokenId) {
         redisTemplate.delete(KEY_PREFIX + tokenId);
     }

@@ -115,14 +115,16 @@ public class AuthService {
             throw new KHJException(JwtErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        Long userId = resolveRefreshTokenOwner(refreshToken)
+        // GETDEL로 원자적으로 소비함
+        // 같은 RT가 동시에 들어와도 하나만 값을 받음
+        Long userId = validRefreshTokenId(refreshToken)
+                .map(refreshTokenStore::consumeUserId)
+                .filter(stored -> stored.equals(jwtProvider.getUserId(refreshToken)))
                 .orElseThrow(() -> new KHJException(JwtErrorCode.INVALID_OR_EXPIRED_REFRESH_TOKEN));
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new KHJException(UserErrorCode.USER_NOT_FOUND));
 
-        // 회전: 쓴 RT는 즉시 폐기해서 재사용을 막는다
-        refreshTokenStore.delete(jwtProvider.getTokenId(refreshToken));
         return issueTokens(user);
     }
 
@@ -139,21 +141,17 @@ public class AuthService {
      * 실패는 전부 빈 값. 호출부가 JWT_401로 올릴지(A3) 무시할지(A4) 정한다.
      */
     private Optional<Long> resolveRefreshTokenOwner(String refreshToken) {
+        return validRefreshTokenId(refreshToken)
+                .map(refreshTokenStore::findUserId)
+                .filter(stored -> stored.equals(jwtProvider.getUserId(refreshToken)));
+    }
+
+    /** 서명/만료가 유효하고 jti가 있는 RT의 tokenId. jti가 없다 = RT가 아니라 AT를 보냈다 */
+    private Optional<String> validRefreshTokenId(String refreshToken) {
         if (!StringUtils.hasText(refreshToken) || !jwtProvider.validateToken(refreshToken)) {
             return Optional.empty();
         }
-
-        String tokenId = jwtProvider.getTokenId(refreshToken);
-        if (tokenId == null) {
-            // jti가 없다 = RT가 아니라 AT를 보냈다
-            return Optional.empty();
-        }
-
-        Long storedUserId = refreshTokenStore.findUserId(tokenId);
-        if (storedUserId == null || !storedUserId.equals(jwtProvider.getUserId(refreshToken))) {
-            return Optional.empty();
-        }
-        return Optional.of(storedUserId);
+        return Optional.ofNullable(jwtProvider.getTokenId(refreshToken));
     }
 
     private TokenResponse issueTokens(User user) {
