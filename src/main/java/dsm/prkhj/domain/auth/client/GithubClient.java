@@ -11,6 +11,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -43,6 +44,8 @@ public class GithubClient {
 
     private static String requireHttps(String property, String url) {
         URI uri;
+
+        // 부팅 시점 설정 검증
         try {
             uri = URI.create(url);
         } catch (IllegalArgumentException e) {
@@ -94,9 +97,16 @@ public class GithubClient {
         return response;
     }
 
-    private <T> T call(java.util.function.Supplier<T> request) {
+    <T> T call(java.util.function.Supplier<T> request) {
         try {
             return request.get();
+        } catch (RestClientResponseException e) {
+
+            // 우리 실수인지 Github 실수인지 판단
+            // 4XX or 5XX
+            throw new KHJException(e.getStatusCode().is4xxClientError()
+                    ? AuthErrorCode.INVALID_GITHUB_CODE
+                    : AuthErrorCode.GITHUB_OAUTH_UNAVAILABLE);
         } catch (RestClientException e) {
             throw new KHJException(AuthErrorCode.GITHUB_OAUTH_UNAVAILABLE);
         }
