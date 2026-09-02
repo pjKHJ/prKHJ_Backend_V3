@@ -63,6 +63,11 @@ public class User {
         this.role = Role.USER;
     }
 
+    // 평문이 이 엔티티에 들어오면 안 됨
+    public void updateGithubAccessToken(byte[] githubAccessToken) {
+        this.githubAccessToken = githubAccessToken;
+    }
+
     // github_login과 avatar_url은 GitHub에서 바뀔 수 있으므로 로그인할 때마다 갱신
     public void syncGithubProfile(String githubLogin, String avatarUrl) {
         this.githubLogin = githubLogin;
