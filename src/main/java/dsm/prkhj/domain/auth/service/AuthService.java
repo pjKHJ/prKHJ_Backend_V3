@@ -85,7 +85,7 @@ public class AuthService {
 
     @Transactional
     public LoginResponse loginWithGithub(String code) {
-        if (!(code != null && code.isBlank())) {
+        if (!StringUtils.hasText(code)) {
             throw new KHJException(AuthErrorCode.INVALID_GITHUB_CODE_FORMAT);
         }
 
