@@ -5,16 +5,24 @@ import dsm.prkhj.global.exception.KHJException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+
 @Component
 public class GithubClient {
 
-    private final RestClient restClient = RestClient.create();
+    // 리다이렉트를 따라가면 https -> http 로 내려가며 client-secret/access-token 이 평문 노출될 수 있음
+    private final RestClient restClient = RestClient.builder()
+            .requestFactory(new JdkClientHttpRequestFactory(
+                    HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build()))
+            .build();
 
     private final String clientId;
     private final String clientSecret;
@@ -29,8 +37,21 @@ public class GithubClient {
     ) {
         this.clientId = clientId;
         this.clientSecret = clientSecret;
-        this.tokenUrl = tokenUrl;
-        this.userUrl = userUrl;
+        this.tokenUrl = requireHttps("github.token-url", tokenUrl);
+        this.userUrl = requireHttps("github.user-url", userUrl);
+    }
+
+    private static String requireHttps(String property, String url) {
+        URI uri;
+        try {
+            uri = URI.create(url);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(property + " is not a valid URL: " + url, e);
+        }
+        if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null) {
+            throw new IllegalArgumentException(property + " must be an absolute https URL: " + url);
+        }
+        return url;
     }
 
     public String exchangeCodeForAccessToken(String code) {
