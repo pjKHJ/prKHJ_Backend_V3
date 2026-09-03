@@ -28,7 +28,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 @Service
 public class AuthService {
 
-    // 명세의 accessTokenExpiresAt은 +09:00 고정. 서버 TZ에 끌려다니면 안 된다
+    // +09:00 고정.
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final GithubClient githubClient;
