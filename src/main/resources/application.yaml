@@ -32,6 +32,11 @@ github:
   user-url: https://api.github.com/user
   scope: "read:user repo"
 
+# TokenEncryptor 환경 변수
+encryption:
+  password: ${ENCRYPTION_PASSWORD}
+  salt: ${ENCRYPTION_SALT}
+
 auth:
   default-redirect-uri: ${AUTH_DEFAULT_REDIRECT_URI:http://localhost:3000/oauth/callback}
   allowed-redirect-uris: ${AUTH_ALLOWED_REDIRECT_URIS:http://localhost:3000/oauth/callback}

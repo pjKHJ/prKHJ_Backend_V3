@@ -13,6 +13,7 @@ import dsm.prkhj.domain.auth.jwt.JwtProvider;
 import dsm.prkhj.domain.auth.repository.UserRepository;
 import dsm.prkhj.global.exception.KHJException;
 import dsm.prkhj.global.redis.RefreshTokenStore;
+import dsm.prkhj.global.security.TokenEncryptor;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -27,13 +28,14 @@ import org.springframework.web.util.UriComponentsBuilder;
 @Service
 public class AuthService {
 
-    // 명세의 accessTokenExpiresAt은 +09:00 고정. 서버 TZ에 끌려다니면 안 된다
+    // +09:00 고정.
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final GithubClient githubClient;
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
     private final RefreshTokenStore refreshTokenStore;
+    private final TokenEncryptor tokenEncryptor;
 
     private final String githubClientId;
     private final String githubAuthorizeUrl;
@@ -46,6 +48,7 @@ public class AuthService {
             UserRepository userRepository,
             JwtProvider jwtProvider,
             RefreshTokenStore refreshTokenStore,
+            TokenEncryptor tokenEncryptor,
             @Value("${github.client-id}") String githubClientId,
             @Value("${github.authorize-url}") String githubAuthorizeUrl,
             @Value("${github.scope}") String githubScope,
@@ -56,6 +59,7 @@ public class AuthService {
         this.userRepository = userRepository;
         this.jwtProvider = jwtProvider;
         this.refreshTokenStore = refreshTokenStore;
+        this.tokenEncryptor = tokenEncryptor;
         this.githubClientId = githubClientId;
         this.githubAuthorizeUrl = githubAuthorizeUrl;
         this.githubScope = githubScope;
@@ -92,7 +96,6 @@ public class AuthService {
         String githubAccessToken = githubClient.exchangeCodeForAccessToken(code);
         GithubUserResponse githubUser = githubClient.getUser(githubAccessToken);
 
-        // ponytail: github_access_token 저장은 암호화(12번)와 함께. 평문으로 먼저 넣지 않는다.
         User existing = userRepository.findByGithubUserId(githubUser.id()).orElse(null);
         boolean isNewUser = (existing == null);
         User user = isNewUser
@@ -105,6 +108,8 @@ public class AuthService {
                 )
                 : existing;
         user.syncGithubProfile(githubUser.login(), githubUser.avatarUrl());
+        // repo scope 토큰. 커밋 기능에서 쓰려면 보관해야 하는데 평문은 안됨.
+        user.updateGithubAccessToken(tokenEncryptor.encrypt(githubAccessToken));
 
         return LoginResponse.of(issueTokens(user), user, isNewUser);
     }

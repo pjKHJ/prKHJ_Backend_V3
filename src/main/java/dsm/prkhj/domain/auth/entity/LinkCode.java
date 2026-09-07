@@ -40,7 +40,7 @@ public class LinkCode {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private User user;
 
-    @Column(nullable = false, columnDefinition = "CHAR(10)")
+    @Column(nullable = false, columnDefinition = "CHAR(12)")
     private String code;
 
     @CreationTimestamp
