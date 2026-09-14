@@ -1,5 +1,5 @@
-# cd.yml이 서버의 $REMOTE_DIR/docker-compose.yml 로 복사한다.
-# 같은 디렉토리의 .env 는 PROD_ENV 시크릿에서 내려오며, 키는 루트 .env.example 과 같다.
+# 서버의 /opt/prkhj/docker-compose.yml 로 직접 복사해 둔다. cd.yml은 pull/up만 하고 이 파일은 옮기지 않는다.
+# 같은 디렉토리에 .env 도 직접 둔다. 키는 루트 .env.example 과 같다.
 # DB_HOST/DB_PORT/REDIS_HOST/REDIS_PORT 는 아래 environment 가 덮어쓰므로 .env 값은 무시된다.
 services:
   app:
