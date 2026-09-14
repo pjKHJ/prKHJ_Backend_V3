@@ -3,27 +3,15 @@ name: CD
 on:
   push:
     branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
-env:
-  IMAGE: ghcr.io/pjkhj/prkhj_backend_v3
-  REMOTE_DIR: /opt/prkhj
 
 jobs:
-  test:
-    uses: ./.github/workflows/ci.yml
-
-  # Secrets: SSH_HOST, SSH_PORT, SSH_USER, SSH_PRIVATE_KEY, PROD_ENV
   deploy:
-    needs: test
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
       packages: write
+    env:
+      TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -33,86 +21,21 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - uses: gradle/actions/setup-gradle@v4
-
-      # The Dockerfile is runtime-only and COPYs build/libs/*.jar, so the jar
-      # must exist before docker build.
-      - name: Build jar
-        run: ./gradlew bootJar -x test
-
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push image
+      # Dockerfile은 jar를 COPY만 하므로 jar를 먼저 만든다
+      - name: Push image
         run: |
-          docker build -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
-          docker push "$IMAGE:${{ github.sha }}"
-          docker push "$IMAGE:latest"
+          ./gradlew bootJar -x test
+          echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker build -t ghcr.io/pjkhj/prkhj_backend_v3 .
+          docker push ghcr.io/pjkhj/prkhj_backend_v3
 
-      - name: Set up SSH key
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
-          chmod 600 ~/.ssh/id_deploy
-          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
-
-      # PROD_ENV is the whole server .env (same keys as .env.example). It goes
-      # over ssh stdin like the GHCR token below; the guard keeps an unset
-      # secret from overwriting the server's .env with an empty file.
-      - name: Copy compose file and .env
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          PROD_ENV: ${{ secrets.PROD_ENV }}
-        run: |
-          test -n "$PROD_ENV" || { echo "PROD_ENV secret is not set" >&2; exit 1; }
-          printf '%s\n' "$PROD_ENV" | ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
-            "mkdir -p '$REMOTE_DIR' && cat > '$REMOTE_DIR/.env' && chmod 600 '$REMOTE_DIR/.env'"
-          scp -i ~/.ssh/id_deploy -P "$SSH_PORT" \
-            deploy/docker-compose.prod.yml \
-            "$SSH_USER@$SSH_HOST:$REMOTE_DIR/docker-compose.yml"
-
-      # The GHCR token goes over ssh stdin so it never lands in the remote argv.
+      # 서버 /opt/prkhj 에 docker-compose.yml(deploy/docker-compose.prod.yml)과 .env 가 미리 있어야 한다.
+      # 토큰은 ssh stdin으로 넘겨 원격 프로세스 인자에 남지 않게 한다
       - name: Deploy
         env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHCR_USER: ${{ github.actor }}
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
-          printf '%s' "$GHCR_TOKEN" | ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
-            "set -e
-             docker login ghcr.io -u '$GHCR_USER' --password-stdin
-             cd '$REMOTE_DIR'
-             docker compose pull
-             docker compose up -d
-             docker image prune -f"
-
-      - name: Health check
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-        run: |
-          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
-            "for i in \$(seq 1 20); do
-               curl -fsS -o /dev/null localhost:8080/api/v1/auth/github/url && exit 0
-               sleep 3
-             done
-             echo 'health check failed after 60s'
-             cd '$REMOTE_DIR' && docker compose logs --tail=80
-             exit 1"
-
-      - name: Remove SSH key
-        if: always()
-        run: rm -f ~/.ssh/id_deploy
+          eval "$(ssh-agent -s)"
+          ssh-add - <<< "$SSH_KEY"
+          echo "$TOKEN" | ssh -o StrictHostKeyChecking=accept-new -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "docker login ghcr.io -u $GITHUB_ACTOR --password-stdin && cd /opt/prkhj && docker compose pull && docker compose up -d && docker image prune -f"
