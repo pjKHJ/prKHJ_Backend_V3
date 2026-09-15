@@ -1,0 +1,45 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Dockerfile은 jar를 COPY만 하므로 jar를 먼저 만든다
+      - name: Push image
+        run: |
+          ./gradlew bootJar
+          echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker build -t ghcr.io/pjkhj/prkhj_backend_v3 .
+          docker push ghcr.io/pjkhj/prkhj_backend_v3
+
+      # 서버 /opt/prkhj 에 docker-compose.yml(deploy/docker-compose.prod.yml)과 .env 가 미리 있어야 한다.
+      # 토큰은 ssh stdin으로 넘겨 원격 프로세스 인자에 남지 않게 한다
+      - name: Deploy
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          eval "$(ssh-agent -s)"
+          ssh-add - <<< "$SSH_KEY"
+          echo "$TOKEN" | ssh -o StrictHostKeyChecking=accept-new -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "docker login ghcr.io -u $GITHUB_ACTOR --password-stdin && cd /opt/prkhj && docker compose pull && docker compose up -d && docker image prune -f"
