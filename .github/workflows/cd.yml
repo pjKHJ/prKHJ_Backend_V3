@@ -5,7 +5,11 @@ on:
     branches: [main]
 
 jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,7 +28,7 @@ jobs:
       # Dockerfile은 jar를 COPY만 하므로 jar를 먼저 만든다
       - name: Push image
         run: |
-          ./gradlew bootJar -x test
+          ./gradlew bootJar
           echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           docker build -t ghcr.io/pjkhj/prkhj_backend_v3 .
           docker push ghcr.io/pjkhj/prkhj_backend_v3
