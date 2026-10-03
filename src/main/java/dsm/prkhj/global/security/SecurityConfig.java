@@ -29,6 +29,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/github/url").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/github").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/actuator/health/readiness").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/extension/link").permitAll() // 연동 코드 -> 인증 안함
+                        // ExtensionTokenFilter가 토큰을 확인한 요청만 이 롤을 받는다
+                        .requestMatchers("/api/v1/extension/link").hasRole(ExtensionTokenFilter.ROLE)
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(handling -> handling
