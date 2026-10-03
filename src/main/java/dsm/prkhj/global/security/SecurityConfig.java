@@ -15,6 +15,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ExtensionTokenFilter extensionTokenFilter;
     private final SecurityErrorHandler securityErrorHandler;
 
     @Bean
@@ -34,7 +35,9 @@ public class SecurityConfig {
                         .authenticationEntryPoint(securityErrorHandler)
                         .accessDeniedHandler(securityErrorHandler)
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                // JWT 필터 뒤에 둬야 익스텐션 경로에서 Bearer 인증을 덮어쓴다
+                .addFilterAfter(extensionTokenFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }
