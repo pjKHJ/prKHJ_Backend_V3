@@ -1,6 +1,7 @@
 package dsm.prkhj.global.security;
 
 import tools.jackson.databind.ObjectMapper;
+import dsm.prkhj.global.exception.ErrorCode;
 import dsm.prkhj.global.exception.ErrorResponse;
 import dsm.prkhj.global.exception.GlobalErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,7 +33,8 @@ public class SecurityErrorHandler implements AuthenticationEntryPoint, AccessDen
         write(response, GlobalErrorCode.FORBIDDEN, request.getRequestURI());
     }
 
-    private void write(HttpServletResponse response, GlobalErrorCode errorCode, String path) throws IOException {
+    // Extensi성onTokenFilter도 EXT_401을 같은 형식으로 쓴다
+    void write(HttpServletResponse response, ErrorCode errorCode, String path) throws IOException {
         response.setStatus(errorCode.getStatus().value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
