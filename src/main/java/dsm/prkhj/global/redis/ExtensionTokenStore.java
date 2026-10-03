@@ -31,4 +31,10 @@ public class ExtensionTokenStore {
             redisTemplate.delete(TOKEN_KEY_PREFIX + token);
         }
     }
+
+    public Long findUserId(String token) {
+        String userId = redisTemplate.opsForValue().get(TOKEN_KEY_PREFIX + token);
+        return (userId == null) ? null : Long.valueOf(userId);
+    }
+
 }
