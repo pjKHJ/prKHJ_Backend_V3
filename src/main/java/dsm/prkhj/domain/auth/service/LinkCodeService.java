@@ -8,6 +8,7 @@ import dsm.prkhj.domain.auth.repository.ExtensionLinkRepository;
 import dsm.prkhj.domain.auth.repository.LinkCodeRepository;
 import dsm.prkhj.domain.auth.repository.UserRepository;
 import dsm.prkhj.global.exception.KHJException;
+import dsm.prkhj.global.redis.ExtensionTokenStore;
 import java.security.SecureRandom;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class LinkCodeService {
     private final UserRepository userRepository;
     private final LinkCodeRepository linkCodeRepository;
     private final ExtensionLinkRepository extensionLinkRepository;
+    private final ExtensionTokenStore extensionTokenStore;
 
     @Transactional
     public LinkCodeResponse getLinkCode(Long userId) {
@@ -52,6 +54,8 @@ public class LinkCodeService {
 
         // 영속성 트렌젝션
         linkCodeRepository.flush();
+        // Redis도 삭제
+        extensionTokenStore.deleteByUserId(userId);
 
         return LinkCodeResponse.of(
                 issueLinkCode(userId),
